@@ -31,4 +31,9 @@ public class GlobalExceptionHandler {
                 .findFirst().orElse("Validation failed");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg));
     }
+
+    @ExceptionHandler(LoginBlockedException.class)
+    public ResponseEntity<Map<String, String>> blocked(LoginBlockedException ex) {
+        return ResponseEntity.status(ex.getStatus()).body(Map.of("error", ex.getMessage()));
+    }
 }

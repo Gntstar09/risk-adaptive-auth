@@ -48,10 +48,9 @@ public class ContextCollector {
         LocalDateTime since = now.minusMinutes(windowMinutes);
 
         long failedByEmail = loginAttemptRepository
-                .countByEmailAndSuccessFalseAndAttemptTimeAfter(req.email(), since);
-
+                .countByEmailAndSuccessFalseAndDecisionIsNullAndAttemptTimeAfter(req.email(), since);
         long failedByIp = loginAttemptRepository
-                .countByIpAddressAndSuccessFalseAndAttemptTimeAfter(ip, since);
+                .countByIpAddressAndSuccessFalseAndDecisionIsNullAndAttemptTimeAfter(ip, since);
 
         return new LoginContext(
                 ip, userAgent, deviceHash, country,

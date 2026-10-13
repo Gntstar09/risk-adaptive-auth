@@ -71,25 +71,22 @@ public class ProfileService {
     }
 
     /** Call after a successful login to add/refresh the device in the baseline. */
+
     @Transactional
-    public void updateProfile(Long userId, LoginContext ctx) {
-        knownDeviceRepository
-                .findByUserIdAndDeviceHash(userId, ctx.deviceHash())
+    public void updateProfile(Long userId, String deviceHash, LocalDateTime time) {
+        knownDeviceRepository.findByUserIdAndDeviceHash(userId, deviceHash)
                 .ifPresentOrElse(
                         device -> {
-                            device.setLastSeen(ctx.time());
+                            device.setLastSeen(time);
                             knownDeviceRepository.save(device);
                         },
-                        () -> knownDeviceRepository.save(
-                                KnownDevice.builder()
-                                        .userId(userId)
-                                        .deviceHash(ctx.deviceHash())
-                                        .firstSeen(ctx.time())
-                                        .lastSeen(ctx.time())
-                                        .trusted(true) // Later: only after OTP verification
-                                        .build()
-                        )
-                );
+                        () -> knownDeviceRepository.save(KnownDevice.builder()
+                                .userId(userId)
+                                .deviceHash(deviceHash)
+                                .firstSeen(time)
+                                .lastSeen(time)
+                                .trusted(true)
+                                .build()));
     }
 
     private int hourDistance(int a, int b) {

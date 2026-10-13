@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.riskauth.risk_auth.dto.VerifyOtpRequest;
 
 @RestController
 @RequestMapping("/auth")
@@ -29,5 +30,9 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req,
                                               HttpServletRequest http) {
         return ResponseEntity.ok(authService.login(req, http));
+    }
+    @PostMapping("/verify-otp")
+    public ResponseEntity<AuthResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest req) {
+        return ResponseEntity.ok(authService.verifyOtp(req));
     }
 }

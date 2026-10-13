@@ -2,6 +2,9 @@ package com.riskauth.risk_auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.riskauth.risk_auth.context.ContextSignals;
+import com.riskauth.risk_auth.risk.RiskFactor;
+
+import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AuthResponse(
@@ -9,5 +12,8 @@ public record AuthResponse(
         String email,
         String role,
         String message,
-        ContextSignals signals
+        ContextSignals signals,
+        Integer riskScore,
+        String decision,
+        List<RiskFactor> riskFactors
 ) {}
