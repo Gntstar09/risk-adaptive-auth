@@ -5,3 +5,5 @@ target/
 !.env.example
 .idea/
 *.iml
+ml/venv/
+__pycache__/

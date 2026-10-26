@@ -1,5 +1,5 @@
 package com.riskauth.risk_auth.context;
-
+import java.time.LocalDateTime;
 public record ContextSignals(
         boolean firstLogin,
         boolean newDevice,
@@ -8,5 +8,6 @@ public record ContextSignals(
         long failedAttemptsByEmail,
         long failedAttemptsByIp,
         String country,
-        String deviceHash
+        String deviceHash,
+        LocalDateTime time
 ) {}

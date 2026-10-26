@@ -43,7 +43,8 @@ public class ProfileService {
                 ctx.failedByEmail(),
                 ctx.failedByIp(),
                 ctx.country(),
-                ctx.deviceHash()
+                ctx.deviceHash(),
+                ctx.time()
         );
     }
 
