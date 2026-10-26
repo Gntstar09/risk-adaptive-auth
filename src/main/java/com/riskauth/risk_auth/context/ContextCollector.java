@@ -1,4 +1,3 @@
-
 package com.riskauth.risk_auth.context;
 
 import com.riskauth.risk_auth.dto.LoginRequest;
@@ -24,57 +23,51 @@ public class ContextCollector {
     @Value("${app.risk.velocity-window-minutes:10}")
     private long windowMinutes;
 
+    /** Used by the login flow: pulls values out of the HTTP request. */
     public LoginContext collect(LoginRequest req, HttpServletRequest http) {
-        String ip = extractIp(http);
+        String language = (req.language() != null && !req.language().isBlank())
+                ? req.language() : nz(http.getHeader("Accept-Language"));
+        return build(req.email(), extractIp(http), http.getHeader("User-Agent"),
+                req.screenResolution(), req.timezone(), language);
+    }
 
-        String userAgent = nz(http.getHeader("User-Agent"));
+    /** Used by both the login flow and POST /risk/evaluate. */
+    public LoginContext build(String email, String ip, String userAgentRaw,
+                              String screenResolution, String timezone, String language) {
+        String userAgent = nz(userAgentRaw);
         if (userAgent.length() > 500) {
             userAgent = userAgent.substring(0, 500);
         }
 
-        String language = (req.language() != null && !req.language().isBlank())
-                ? req.language()
-                : nz(http.getHeader("Accept-Language"));
-
-        String deviceHash = sha256(
-                userAgent + "|" + language + "|"
-                        + nz(req.screenResolution()) + "|"
-                        + nz(req.timezone())
-        );
+        String deviceHash = sha256(userAgent + "|" + nz(language) + "|"
+                + nz(screenResolution) + "|" + nz(timezone));
 
         String country = geoIpService.getCountry(ip);
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime since = now.minusMinutes(windowMinutes);
-
         long failedByEmail = loginAttemptRepository
-                .countByEmailAndSuccessFalseAndDecisionIsNullAndAttemptTimeAfter(req.email(), since);
+                .countByEmailAndSuccessFalseAndDecisionIsNullAndAttemptTimeAfter(email, since);
         long failedByIp = loginAttemptRepository
                 .countByIpAddressAndSuccessFalseAndDecisionIsNullAndAttemptTimeAfter(ip, since);
 
-        return new LoginContext(
-                ip, userAgent, deviceHash, country,
-                now, failedByEmail, failedByIp
-        );
+        return new LoginContext(ip, userAgent, deviceHash, country, now, failedByEmail, failedByIp);
     }
 
     private String extractIp(HttpServletRequest request) {
-        // Trust X-Forwarded-For only when configured behind a trusted proxy.
+        // NOTE: X-Forwarded-For can be spoofed. Fine for a demo (lets us simulate
+        // other countries in Postman); in production trust it only behind your own proxy.
         String forwarded = request.getHeader("X-Forwarded-For");
-
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.split(",")[0].trim();
         }
-
         return request.getRemoteAddr();
     }
 
     private String sha256(String raw) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(
-                    md.digest(raw.getBytes(StandardCharsets.UTF_8))
-            );
+            return HexFormat.of().formatHex(md.digest(raw.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }

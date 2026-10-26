@@ -18,6 +18,8 @@ import com.riskauth.risk_auth.repository.UserRepository;
 import com.riskauth.risk_auth.risk.Decision;
 import com.riskauth.risk_auth.risk.PolicyEngine;
 import com.riskauth.risk_auth.risk.RiskEngine;
+import com.riskauth.risk_auth.risk.RiskAssessment;
+import com.riskauth.risk_auth.risk.RiskAssessmentService;
 import com.riskauth.risk_auth.risk.RiskFactor;
 import com.riskauth.risk_auth.risk.RiskResult;
 import com.riskauth.risk_auth.security.JwtService;
@@ -47,8 +49,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final ContextCollector contextCollector;
     private final ProfileService profileService;
-    private final RiskEngine riskEngine;
-    private final PolicyEngine policyEngine;
+    private final RiskAssessmentService riskAssessmentService;
     private final OtpService otpService;
 
     @Value("${app.risk.brute-force-limit:5}")
@@ -97,10 +98,10 @@ public class AuthService {
         User user = userOpt.get();
 
         // 4. Signals -> risk score -> decision
-        ContextSignals signals = profileService.evaluate(user.getId(), ctx);
-        RiskResult risk = riskEngine.evaluate(signals);
-        Decision decision = policyEngine.decide(risk.score());
-
+        RiskAssessment assessment = riskAssessmentService.assess(user.getId(), ctx);
+        ContextSignals signals = assessment.signals();
+        RiskResult risk = assessment.risk();
+        Decision decision = assessment.decision();
         // 5. Record the attempt. success=true ONLY if the login is complete (ALLOW).
         boolean completed = decision == Decision.ALLOW;
         LoginAttempt attempt = logAttempt(user.getId(), user.getEmail(), ctx,

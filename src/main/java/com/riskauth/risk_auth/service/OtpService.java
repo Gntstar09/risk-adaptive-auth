@@ -5,7 +5,10 @@ import com.riskauth.risk_auth.entity.User;
 import com.riskauth.risk_auth.repository.OtpTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +22,7 @@ public class OtpService {
 
     private final OtpTokenRepository otpTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final SecureRandom random = new SecureRandom();
 
     @Value("${app.otp.expiry-minutes:5}")
@@ -26,6 +30,12 @@ public class OtpService {
 
     @Value("${app.otp.max-attempts:3}")
     private int maxAttempts;
+
+    @Value("${app.otp.email-enabled:false}")
+    private boolean emailEnabled;
+
+    @Value("${spring.mail.username:}")
+    private String fromAddress;
 
     public void generateAndSend(User user, Long attemptId) {
         // Only the newest OTP may be valid
@@ -45,8 +55,31 @@ public class OtpService {
                 .attempts(0)
                 .build());
 
-        // DEMO ONLY: printed to the console. Real email delivery comes on Day 4.
-        log.info("[DEMO] OTP for {} = {}", user.getEmail(), code);
+        deliver(user, code);
+    }
+
+    private void deliver(User user, String code) {
+        JavaMailSender sender = mailSenderProvider.getIfAvailable();
+
+        // Demo mode: no email configured, print to the console instead
+        if (!emailEnabled || sender == null || fromAddress.isBlank()) {
+            log.info("[DEMO] OTP for {} = {}", user.getEmail(), code);
+            return;
+        }
+
+        try {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            msg.setFrom(fromAddress);
+            msg.setTo(user.getEmail());
+            msg.setSubject("Your verification code");
+            msg.setText("Your verification code is " + code + ".\n\n"
+                    + "It expires in " + expiryMinutes + " minutes and can be used once.\n"
+                    + "If you did not try to sign in, please change your password.");
+            sender.send(msg);
+            log.info("OTP email sent to {}", user.getEmail());   // the code itself is never logged
+        } catch (Exception e) {
+            log.error("Could not send OTP email to {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 
     /**
