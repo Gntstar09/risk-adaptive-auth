@@ -54,7 +54,7 @@ public class ContextCollector {
         return new LoginContext(ip, userAgent, deviceHash, country, now, failedByEmail, failedByIp);
     }
 
-    private String extractIp(HttpServletRequest request) {
+    public String extractIp(HttpServletRequest request) {
         // NOTE: X-Forwarded-For can be spoofed. Fine for a demo (lets us simulate
         // other countries in Postman); in production trust it only behind your own proxy.
         String forwarded = request.getHeader("X-Forwarded-For");

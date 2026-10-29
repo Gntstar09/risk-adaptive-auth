@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Risk Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root { --navy:#0B1F33; --teal:#0E8A9A; --bg:#EEF3F7; --muted:#4A6275; --green:#1E8E5A; --amber:#E8A200; --red:#C0392B; --grey:#8A9BAA; }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body { margin:0; font-family: Calibri, Arial, sans-serif; background:var(--bg); color:var(--navy); }
+        header { background:var(--navy); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+        header h1 { font-size:20px; margin:0; }
+        main { padding:20px 24px; max-width:1200px; margin:0 auto; }
+        .card { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+        .login { max-width:420px; margin:40px auto; }
+        .login label { display:block; margin:10px 0 4px; font-size:14px; color:var(--muted); }
+        input, select { width:100%; padding:9px; border:1px solid #cbd5df; border-radius:6px; font-size:15px; }
+        button { background:var(--teal); color:#fff; border:0; border-radius:6px; padding:9px 16px; font-size:15px; cursor:pointer; margin-top:12px; }
+        button.secondary { background:#fff; color:var(--navy); border:1px solid #cbd5df; margin-top:0; }
+        .msg { color:var(--red); min-height:20px; margin-top:10px; font-size:14px; }
+        .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
+        .toolbar select { width:auto; }
+        .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px; }
+        .kpi .v { font-size:28px; font-weight:700; }
+        .kpi .l { font-size:13px; color:var(--muted); }
+        .grid2 { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+        .grid2b { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+        .chart-box { position:relative; height:280px; }
+        h2 { font-size:16px; margin:0 0 10px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        th, td { text-align:left; padding:7px 6px; border-bottom:1px solid #e3e9ef; }
+        th { color:var(--muted); font-weight:600; }
+        .muted { color:var(--muted); }
+        .pill { padding:2px 8px; border-radius:10px; color:#fff; font-size:12px; font-weight:700; }
+        .pill.step-up { background:var(--amber); color:var(--navy); }
+        .pill.deny { background:var(--red); }
+        .pill.wrong-password { background:var(--grey); }
+        @media (max-width: 900px) { .kpis { grid-template-columns:repeat(2,1fr); } .grid2, .grid2b { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Risk-Adaptive Authentication: Admin Dashboard</h1>
+    <button id="logout" class="secondary" hidden>Log out</button>
+</header>
+<main>
+
+    <section id="login-panel" class="card login">
+        <h2>Admin sign-in</h2>
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password">
+        <button id="btn-login">Sign in</button>
+        <div id="otp-box" hidden>
+            <label for="otp">Verification code (sent to your email)</label>
+            <input id="otp" inputmode="numeric" maxlength="6">
+            <button id="btn-otp">Verify</button>
+        </div>
+        <hr style="margin:18px 0; border:0; border-top:1px solid #e3e9ef">
+        <label for="pasted">Or paste an admin token</label>
+        <input id="pasted" placeholder="eyJhbGciOi...">
+        <button id="btn-token" class="secondary" style="margin-top:8px">Use token</button>
+        <div id="msg" class="msg"></div>
+    </section>
+
+    <section id="dash" hidden>
+        <div class="toolbar">
+            <label for="days">Period</label>
+            <select id="days">
+                <option value="1">Today</option>
+                <option value="7" selected>Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+            </select>
+            <button id="btn-refresh" class="secondary">Refresh</button>
+            <span class="muted" id="updated"></span>
+        </div>
+
+        <div class="kpis">
+            <div class="card kpi"><div class="v" id="k-total">0</div><div class="l">Login attempts</div></div>
+            <div class="card kpi"><div class="v" id="k-allow" style="color:var(--green)">0</div><div class="l">Allowed</div></div>
+            <div class="card kpi"><div class="v" id="k-step" style="color:var(--amber)">0</div><div class="l">OTP step-up</div></div>
+            <div class="card kpi"><div class="v" id="k-deny" style="color:var(--red)">0</div><div class="l">Blocked</div></div>
+            <div class="card kpi"><div class="v" id="k-wrong">0</div><div class="l">Wrong password</div></div>
+            <div class="card kpi"><div class="v" id="k-avg">0</div><div class="l">Average risk score</div></div>
+        </div>
+
+        <div class="grid2">
+            <div class="card"><h2>Login outcomes per day</h2><div class="chart-box"><canvas id="c-timeline"></canvas></div></div>
+            <div class="card"><h2>Outcome mix</h2><div class="chart-box"><canvas id="c-mix"></canvas></div></div>
+        </div>
+
+        <div class="grid2b">
+            <div class="card"><h2>Top risk factors</h2><div class="chart-box"><canvas id="c-factors"></canvas></div></div>
+            <div class="card"><h2>Top risky IP addresses</h2>
+                <table><thead><tr><th>IP</th><th>Country</th><th>Events</th><th>Max score</th></tr></thead><tbody id="t-ips"></tbody></table>
+            </div>
+        </div>
+
+        <div class="card"><h2>Recent flagged events</h2>
+            <table><thead><tr><th>ID</th><th>Time</th><th>Email</th><th>IP</th><th>Country</th><th>Score</th><th>Outcome</th></tr></thead><tbody id="t-recent"></tbody></table>
+        </div>
+    </section>
+</main>
+
+<script>
+    let token = null;
+    const $ = (id) => document.getElementById(id);
+    const charts = {};
+    const COLORS = { allow: '#1E8E5A', step: '#E8A200', deny: '#C0392B', wrong: '#8A9BAA' };
+
+    function setMsg(t) { $('msg').textContent = t || ''; }
+    function showLogin() { $('login-panel').hidden = false; $('dash').hidden = true; $('logout').hidden = true; }
+    function showDash()  { $('login-panel').hidden = true; $('dash').hidden = false; $('logout').hidden = false; setMsg(''); }
+
+    function deviceInfo() {
+      return {
+        screenResolution: screen.width + 'x' + screen.height,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language
+      };
+    }
+
+    async function api(path, options) {
+      const opts = options || {};
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch(path, Object.assign({}, opts, { headers: headers }));
+      let data = null;
+      try { data = await res.json(); } catch (e) { /* empty body */ }
+      return { status: res.status, ok: res.ok, data: data };
+    }
+
+    async function login() {
+      setMsg('');
+      const body = Object.assign({ email: $('email').value.trim(), password: $('password').value }, deviceInfo());
+      const r = await api('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+      if (r.ok && r.data && r.data.token) return startSession(r.data.token);
+      if (r.ok && r.data && r.data.decision === 'STEP_UP') {
+        $('otp-box').hidden = false;
+        setMsg('A verification code was sent. Enter it below.');
+        return;
+      }
+      setMsg((r.data && r.data.error) || ('Sign-in failed (' + r.status + ')'));
+    }
+
+    async function verifyOtp() {
+      const body = { email: $('email').value.trim(), code: $('otp').value.trim() };
+      const r = await api('/auth/verify-otp', { method: 'POST', body: JSON.stringify(body) });
+      if (r.ok && r.data && r.data.token) return startSession(r.data.token);
+      setMsg((r.data && r.data.error) || ('Verification failed (' + r.status + ')'));
+    }
+
+    async function startSession(t) {
+      token = t;
+      $('pasted').value = '';
+      $('password').value = '';
+      $('otp').value = '';
+      $('otp-box').hidden = true;
+      await loadDashboard();
+    }
+
+    function logout() { token = null; showLogin(); }
+
+    function upsertChart(key, canvasId, config) {
+      if (charts[key]) charts[key].destroy();
+      charts[key] = new Chart($(canvasId), config);
+    }
+
+    function fillTable(id, rows, pillCol) {
+      const tb = $(id);
+      tb.replaceChildren();
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8; td.className = 'muted'; td.textContent = 'No data in this period';
+        tr.appendChild(td); tb.appendChild(tr);
+        return;
+      }
+      rows.forEach(function (cells) {
+        const tr = document.createElement('tr');
+        cells.forEach(function (c, i) {
+          const td = document.createElement('td');
+          const text = (c === null || c === undefined) ? '' : String(c);
+          if (i === pillCol) {
+            const span = document.createElement('span');
+            span.className = 'pill ' + text.toLowerCase().replace('_', '-');
+            span.textContent = text;
+            td.appendChild(span);
+          } else {
+            td.textContent = text;   // never innerHTML: emails and IPs are attacker-controlled
+          }
+          tr.appendChild(td);
+        });
+        tb.appendChild(tr);
+      });
+    }
+
+    function render(d) {
+      const s = d.summary;
+      $('k-total').textContent = s.total;
+      $('k-allow').textContent = s.allowed;
+      $('k-step').textContent = s.stepUp;
+      $('k-deny').textContent = s.denied;
+      $('k-wrong').textContent = s.wrongPassword;
+      $('k-avg').textContent = s.avgScore;
+      $('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+      const ds = function (label, color, data) { return { label: label, backgroundColor: color, data: data }; };
+      upsertChart('timeline', 'c-timeline', {
+        type: 'bar',
+        data: {
+          labels: d.timeline.map(function (p) { return p.date.slice(5); }),
+          datasets: [
+            ds('Allowed', COLORS.allow, d.timeline.map(function (p) { return p.allow; })),
+            ds('OTP step-up', COLORS.step, d.timeline.map(function (p) { return p.stepUp; })),
+            ds('Blocked', COLORS.deny, d.timeline.map(function (p) { return p.deny; })),
+            ds('Wrong password', COLORS.wrong, d.timeline.map(function (p) { return p.wrongPassword; }))
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+
+      upsertChart('mix', 'c-mix', {
+        type: 'doughnut',
+        data: {
+          labels: ['Allowed', 'OTP step-up', 'Blocked', 'Wrong password'],
+          datasets: [{ data: [s.allowed, s.stepUp, s.denied, s.wrongPassword],
+            backgroundColor: [COLORS.allow, COLORS.step, COLORS.deny, COLORS.wrong] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      upsertChart('factors', 'c-factors', {
+        type: 'bar',
+        data: {
+          labels: d.topFactors.map(function (f) { return f.factor; }),
+          datasets: [{ label: 'Times triggered', backgroundColor: '#0E8A9A', data: d.topFactors.map(function (f) { return f.count; }) }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+
+      fillTable('t-ips', d.topIps.map(function (i) { return [i.ip, i.country, i.events, i.maxScore]; }), -1);
+      fillTable('t-recent', d.recent.map(function (e) { return [e.id, e.time, e.email, e.ip, e.country, e.score, e.decision]; }), 6);
+    }
+
+    async function loadDashboard() {
+      const r = await api('/admin/dashboard?days=' + $('days').value);
+      if (r.status === 401 || r.status === 403) {
+        token = null; showLogin();
+        setMsg(r.status === 403 ? 'This account is not an admin.' : 'Session expired. Please sign in again.');
+        return;
+      }
+      if (!r.ok) { setMsg('Could not load data (' + r.status + ')'); return; }
+      render(r.data);
+      showDash();
+    }
+
+    $('btn-login').addEventListener('click', login);
+    $('btn-otp').addEventListener('click', verifyOtp);
+    $('btn-token').addEventListener('click', function () { const t = $('pasted').value.trim(); if (t) startSession(t); });
+    $('btn-refresh').addEventListener('click', loadDashboard);
+    $('days').addEventListener('change', loadDashboard);
+    $('logout').addEventListener('click', logout);
+    setInterval(function () { if (token) loadDashboard(); }, 30000);
+</script>
+</body>
+</html>

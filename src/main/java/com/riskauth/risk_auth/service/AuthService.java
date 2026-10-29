@@ -18,6 +18,7 @@ import com.riskauth.risk_auth.repository.UserRepository;
 import com.riskauth.risk_auth.risk.Decision;
 import com.riskauth.risk_auth.risk.PolicyEngine;
 import com.riskauth.risk_auth.risk.RiskEngine;
+import com.riskauth.risk_auth.security.SessionFingerprint;
 import com.riskauth.risk_auth.risk.RiskAssessment;
 import com.riskauth.risk_auth.risk.RiskAssessmentService;
 import com.riskauth.risk_auth.risk.RiskFactor;
@@ -122,7 +123,8 @@ public class AuthService {
         }
 
         profileService.updateProfile(user.getId(), ctx.deviceHash(), ctx.time());
-        String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
+        String token = jwtService.generateToken(user.getEmail(), user.getRole().name(),
+                SessionFingerprint.hashUserAgent(ctx.userAgent()), ctx.country());
         return new AuthResponse(token, user.getEmail(), user.getRole().name(),
                 "Login successful", signals, risk.score(), decision.name(), risk.factors());
     }
@@ -140,7 +142,8 @@ public class AuthService {
         loginAttemptRepository.save(attempt);
         profileService.updateProfile(user.getId(), attempt.getDeviceHash(), attempt.getAttemptTime());
 
-        String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
+        String token = jwtService.generateToken(user.getEmail(), user.getRole().name(),
+                SessionFingerprint.hashUserAgent(attempt.getUserAgent()), attempt.getCountry());
         return new AuthResponse(token, user.getEmail(), user.getRole().name(),
                 "Login successful after OTP verification", null,
                 attempt.getRiskScore(), "STEP_UP_VERIFIED", null);

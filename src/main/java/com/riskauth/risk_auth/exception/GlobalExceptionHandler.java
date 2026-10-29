@@ -1,7 +1,8 @@
 package com.riskauth.risk_auth.exception;
 
 
-
+import java.util.LinkedHashMap;
+import com.riskauth.risk_auth.exception.ActionBlockedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -35,5 +36,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(LoginBlockedException.class)
     public ResponseEntity<Map<String, String>> blocked(LoginBlockedException ex) {
         return ResponseEntity.status(ex.getStatus()).body(Map.of("error", ex.getMessage()));
+    }
+    @ExceptionHandler(ActionBlockedException.class)
+    public ResponseEntity<Map<String, Object>> actionBlocked(ActionBlockedException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", ex.getMessage());
+        body.put("decision", ex.getDecision());
+        body.put("riskScore", ex.getScore());
+        if (!ex.getFactors().isEmpty()) {
+            body.put("riskFactors", ex.getFactors());   // hidden on DENY, like at login
+        }
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 }

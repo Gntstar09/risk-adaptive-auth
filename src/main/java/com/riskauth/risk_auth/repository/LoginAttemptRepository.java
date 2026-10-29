@@ -20,4 +20,5 @@ public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long
     List<LoginAttempt> findTop50ByUserIdAndSuccessTrueOrderByAttemptTimeDesc(Long userId);
 
     List<LoginAttempt> findTop50ByOrderByIdDesc();
+    List<LoginAttempt> findByAttemptTimeAfterOrderByIdDesc(LocalDateTime since);
 }
